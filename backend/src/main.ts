@@ -1,25 +1,21 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // MARKER: Aktifkan Validasi Data (agar DTO bekerja)
-  app.useGlobalPipes(new ValidationPipe());
-
-  // MARKER: Konfigurasi CORS (Update untuk Deploy)
+  // 👇 PERBAIKAN DI SINI
   app.enableCors({
-    // Kita ubah ke '*' agar Frontend Vercel (yang linknya belum kita tahu) bisa akses.
-    // Nanti jika sudah production, bisa diganti ke link spesifik Vercel kamu.
-    origin: '*',
+    origin: [
+      'https://ijo-ijo-app-587f.vercel.app', // Link Frontend kamu yang error tadi
+      'https://ijo-ijo-app.vercel.app', // Link Frontend (kalau ada domain lain)
+      'http://localhost:3000', // Buat test di laptop
+    ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true,
+    credentials: true, // Ini wajib true karena frontend kirim credential
   });
+  // 👆 SELESAI PERBAIKAN
 
-  // MARKER: Gunakan Port Dinamis
-  // Render akan otomatis mengisi process.env.PORT.
-  // Jika di laptop (lokal), dia akan pakai 3000.
   await app.listen(process.env.PORT || 3000);
 }
 bootstrap();
