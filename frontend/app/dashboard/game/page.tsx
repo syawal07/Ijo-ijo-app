@@ -5,8 +5,21 @@ import { useRouter } from 'next/navigation';
 import toast, { Toaster } from 'react-hot-toast';
 import api from '@/lib/axios';
 import Link from 'next/link';
+import { ArrowLeft, Play, Lock, Trophy, Timer, Zap, Star } from 'lucide-react';
 
-// --- TIPE DATA ---
+// ============================================================================
+// BAGIAN 1: LOGIKA GAME "IJO CATCHER" (Kode Kamu Sebelumnya)
+// ============================================================================
+
+const TRASH_TYPES = [
+  { type: 'Plastik', emoji: '🥤', color: 'text-blue-400' },
+  { type: 'Kertas', emoji: '📄', color: 'text-yellow-200' },
+  { type: 'Organik', emoji: '🍎', color: 'text-green-400' },
+  { type: 'Logam', emoji: '🥫', color: 'text-gray-400' },
+] as const;
+
+type TrashTypeItem = typeof TRASH_TYPES[number];
+
 interface UserData {
   fullName: string;
   gameTickets: number;
@@ -17,59 +30,55 @@ interface TrashItem {
   id: number;
   type: string;
   emoji: string;
-  x: number; // Posisi Horizontal (%)
-  y: number; // Posisi Vertikal (%)
+  x: number;
+  y: number;
   speed: number;
-  isCaught: boolean; // Status apakah sedang animasi masuk keranjang
+  isCaught: boolean;
 }
 
-const TRASH_TYPES = [
-  { type: 'Plastik', emoji: '🥤' },
-  { type: 'Kertas', emoji: '📄' },
-  { type: 'Organik', emoji: '🍎' },
-  { type: 'Logam', emoji: '🥫' },
-] as const;
-
-export default function GamePage() {
-  const router = useRouter();
+// Kita ubah GamePage kamu menjadi komponen 'IjoCatcherGame' yang menerima props 'onBack'
+function IjoCatcherGame({ onBack }: { onBack: () => void }) {
   const [user, setUser] = useState<UserData | null>(null);
   const [loadingData, setLoadingData] = useState(true);
 
-  // State Game
+  // State UI
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'gameover'>('menu');
   const [items, setItems] = useState<TrashItem[]>([]);
-  const [basketX, setBasketX] = useState(50); // Posisi Tengah (50%)
-  const [targetType, setTargetType] = useState<string>('Plastik');
-  
-  // Display Score
+  const [basketX, setBasketX] = useState(50);
   const [scoreDisplay, setScoreDisplay] = useState(0);
   const [livesDisplay, setLivesDisplay] = useState(3);
+  const [timeLeft, setTimeLeft] = useState(60); 
+  const [targetType, setTargetType] = useState<TrashTypeItem>(TRASH_TYPES[0]);
 
-  // REFS (Variable yang berubah cepat tanpa re-render)
+  // Refs
+  const itemsRef = useRef<TrashItem[]>([]); 
+  const basketXRef = useRef(50);
   const scoreRef = useRef(0);
   const livesRef = useRef(3);
+  const timeRef = useRef(60);
+  const targetTypeRef = useRef<TrashTypeItem>(TRASH_TYPES[0]);
+  
+  // Loop Control
   const requestRef = useRef<number>(0); 
   const lastSpawnRef = useRef(0);
-  const basketRef = useRef<HTMLDivElement>(null);
   const gameAreaRef = useRef<HTMLDivElement>(null);
 
-  // 1. Load User Data
+  // Load User Data
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         const response = await api.get('/auth/profile');
         setUser(response.data);
       } catch (error) {
-        console.error(error);
-        router.push('/dashboard');
+        console.error("Gagal load profile:", error);
       } finally {
         setLoadingData(false);
       }
     };
     fetchProfile();
-  }, [router]);
+  }, []);
 
-  // 2. Start Game
+  // Start Game
   const handleStartGame = async () => {
     if (!user || user.gameTickets <= 0) {
       toast.error('Tiket habis!');
@@ -83,130 +92,127 @@ export default function GamePage() {
       toast.dismiss(toastId);
       startGameLoop();
     } catch (error) {
+      console.error(error);
       toast.dismiss(toastId);
       toast.error('Gagal mulai game');
     }
   };
 
   const startGameLoop = () => {
-    setGameState('playing');
     scoreRef.current = 0;
     livesRef.current = 3;
+    timeRef.current = 60; 
+    itemsRef.current = [];
+    basketXRef.current = 50;
+
     setScoreDisplay(0);
     setLivesDisplay(3);
+    setTimeLeft(60);
     setItems([]);
-    changeTarget();
+    setBasketX(50);
+    setGameState('playing');
 
-    lastSpawnRef.current = performance.now();
-    requestRef.current = requestAnimationFrame(updateGame);
+    const randomTarget = TRASH_TYPES[Math.floor(Math.random() * TRASH_TYPES.length)];
+    targetTypeRef.current = randomTarget;
+    setTargetType(randomTarget);
+    
+    toast(`Misi: Tangkap ${randomTarget.type}!`, { 
+        icon: randomTarget.emoji,
+        duration: 3000,
+        style: { background: '#333', color: '#fff' }
+    });
+
+    const now = performance.now();
+    lastSpawnRef.current = now;
+
+    if (requestRef.current) cancelAnimationFrame(requestRef.current);
+    requestRef.current = requestAnimationFrame(gameLoop);
   };
 
-  const changeTarget = () => {
-    const random = TRASH_TYPES[Math.floor(Math.random() * TRASH_TYPES.length)];
-    setTargetType(random.type);
-  };
-
-  // 3. CORE LOGIC (Jantung Game)
-  const updateGame = (time: number) => {
-    if (livesRef.current <= 0) {
+  // MAIN GAME LOOP
+  const gameLoop = (timestamp: number) => {
+    if (livesRef.current <= 0 || timeRef.current <= 0) {
       endGame();
       return;
     }
 
-    // A. Spawn Sampah (Makin lama makin cepat)
-    // Minimal jeda 400ms, Maksimal 1200ms
-    const spawnRate = Math.max(400, 1200 - (scoreRef.current * 10)); 
-    if (time - lastSpawnRef.current > spawnRate) {
-      spawnItem();
-      lastSpawnRef.current = time;
+    const now = performance.now();
+    const spawnRate = Math.max(400, 1000 - (scoreRef.current * 8)); 
+    
+    if (now - lastSpawnRef.current > spawnRate) {
+        const randomData = TRASH_TYPES[Math.floor(Math.random() * TRASH_TYPES.length)];
+        const newItem: TrashItem = {
+            id: Math.random(),
+            type: randomData.type,
+            emoji: randomData.emoji,
+            x: Math.random() * 80 + 10,
+            y: -15, 
+            speed: 0.4 + (Math.random() * 0.3) + (scoreRef.current * 0.002),
+            isCaught: false,
+        };
+        itemsRef.current.push(newItem);
+        lastSpawnRef.current = now;
     }
 
-    // B. Gerakkan Sampah & Cek Tabrakan
-    setItems(prevItems => {
-      const nextItems: TrashItem[] = [];
-      
-      prevItems.forEach(item => {
-        // Jika sudah tertangkap (animasi mengecil), biarkan dia hilang
+    const activeItems: TrashItem[] = [];
+
+    itemsRef.current.forEach(item => {
         if (item.isCaught) return; 
+        item.y += item.speed;
 
-        // Gerakkan ke bawah
-        const nextY = item.y + item.speed;
-
-        // --- LOGIKA TABRAKAN (COLLISION DETECTION) ---
-        // Keranjang berada di Y: 80% sampai 95%
-        // Lebar Keranjang efektif sekitar 20% (basketX +/- 10%)
-        
-        const isAtBasketHeight = nextY > 80 && nextY < 95;
-        const isInsideBasketWidth = Math.abs(item.x - basketX) < 12; // Toleransi lebar 12% kiri-kanan
+        const isAtBasketHeight = item.y > 80 && item.y < 95;
+        const isInsideBasketWidth = Math.abs(item.x - basketXRef.current) < 12;
 
         if (isAtBasketHeight && isInsideBasketWidth) {
-          // KENA! Masuk Keranjang
-          handleCatch(item);
-          // Tandai item ini caught (untuk animasi atau dihapus)
-          nextItems.push({ ...item, isCaught: true }); 
-        } 
-        else if (nextY > 100) {
-           // Jatuh ke lantai (Hilang)
-           // Opsional: Kalau item target jatuh tapi ga ditangkap, mau dikurangi poin?
-           // Untuk sekarang kita biarkan saja (hanya salah tangkap yg kurangi nyawa)
-        } 
-        else {
-           // Masih jatuh
-           nextItems.push({ ...item, y: nextY });
+            item.isCaught = true; 
+            
+            if (item.type === targetTypeRef.current.type) {
+                scoreRef.current += 10;
+                if (scoreRef.current % 100 === 0) {
+                    timeRef.current += 5;
+                    setTimeLeft(timeRef.current);
+                    toast.success('+5 Detik!', { duration: 1000, position: 'bottom-center' });
+                }
+            } else {
+                livesRef.current -= 1;
+                if (navigator.vibrate) navigator.vibrate(200);
+            }
+        } else if (item.y > 120) {
+            // Missed logic if needed
+        } else {
+            activeItems.push(item);
         }
-      });
-
-      // Filter yang sudah isCaught agar hilang dari array di frame berikutnya (biar visualnya clean)
-      return nextItems.filter(i => !i.isCaught);
     });
 
-    requestRef.current = requestAnimationFrame(updateGame);
+    itemsRef.current = activeItems;
+    setItems([...itemsRef.current]); 
+    setScoreDisplay(scoreRef.current);
+    setLivesDisplay(livesRef.current);
+
+    requestRef.current = requestAnimationFrame(gameLoop);
   };
 
-  const spawnItem = () => {
-    const randomType = TRASH_TYPES[Math.floor(Math.random() * TRASH_TYPES.length)];
-    const newItem: TrashItem = {
-      id: Math.random(),
-      type: randomType.type,
-      emoji: randomType.emoji,
-      x: Math.random() * 80 + 10, // Random X (10% - 90%) agar tidak terlalu pinggir
-      y: -10,
-      speed: 0.4 + (Math.random() * 0.3) + (scoreRef.current * 0.005), // Kecepatan bertambah pelan-pelan
-      isCaught: false,
-    };
-    setItems(prev => [...prev, newItem]);
-  };
-
-  // 4. Logika Penilaian
-  const handleCatch = (item: TrashItem) => {
-    if (item.type === targetType) {
-      // BENAR
-      scoreRef.current += 10;
-      setScoreDisplay(scoreRef.current);
-      
-      // Ganti misi setiap 50 poin
-      if (scoreRef.current % 50 === 0) {
-        changeTarget();
-        setTimeout(() => toast(`Misi Baru: ${targetType}!`, { icon: '🎯' }), 0);
-      }
-    } else {
-      // SALAH
-      livesRef.current -= 1;
-      setLivesDisplay(livesRef.current);
-      if (navigator.vibrate) navigator.vibrate(200);
-      setTimeout(() => toast('Salah Sampah! -1 Nyawa', { icon: '💔' }), 0);
+  // Timer System
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (gameState === 'playing') {
+        interval = setInterval(() => {
+            if (timeRef.current > 0) {
+                timeRef.current -= 1;
+                setTimeLeft(timeRef.current);
+            }
+        }, 1000);
     }
-  };
+    return () => clearInterval(interval);
+  }, [gameState]);
 
-  // 5. Game Over
+  // Game Over
   const endGame = async () => {
     if (requestRef.current) cancelAnimationFrame(requestRef.current);
     setGameState('gameover');
     
-    // Pastikan item bersih
-    setItems([]);
-
     const finalScore = scoreRef.current;
+    
     try {
       await api.post('/games/score', { score: finalScore });
       if (user && finalScore > user.highScore) {
@@ -217,159 +223,278 @@ export default function GamePage() {
     }
   };
 
-  // 6. Kontrol Gerak (Mouse & Touch)
   const handleMove = (e: React.MouseEvent | React.TouchEvent) => {
     if (gameState !== 'playing' || !gameAreaRef.current) return;
-
     const rect = gameAreaRef.current.getBoundingClientRect();
     let clientX = 0;
+    if ('touches' in e) clientX = e.touches[0].clientX;
+    else clientX = (e as React.MouseEvent).clientX;
 
-    if ('touches' in e) {
-      clientX = e.touches[0].clientX;
-    } else {
-      clientX = (e as React.MouseEvent).clientX;
-    }
-
-    // Konversi posisi mouse (pixel) ke persen (0-100) relatif terhadap lebar area game
     let xPercent = ((clientX - rect.left) / rect.width) * 100;
-    
-    // Batasi agar keranjang tidak keluar layar (10% - 90%)
     xPercent = Math.max(10, Math.min(90, xPercent));
     
+    basketXRef.current = xPercent;
     setBasketX(xPercent);
   };
 
-  // Cleanup
   useEffect(() => {
     return () => {
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
     };
   }, []);
 
-  if (loadingData) return <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">Loading...</div>;
+  if (loadingData) return <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white"><div className="animate-spin text-4xl">⏳</div></div>;
 
   return (
-    <main className="min-h-screen bg-gray-900 text-white font-sans overflow-hidden select-none touch-none">
-      <Toaster position="top-center" />
-
-      {/* AREA GAME (FULL SCREEN DI HP) */}
+    <div className="fixed inset-0 bg-gray-900 text-white font-sans overflow-hidden select-none touch-none z-50">
       <div 
         ref={gameAreaRef}
         onMouseMove={handleMove}
         onTouchMove={handleMove}
-        className="relative mx-auto max-w-md h-screen bg-gradient-to-b from-gray-800 to-gray-900 shadow-2xl overflow-hidden cursor-crosshair"
+        className="relative mx-auto max-w-md h-screen bg-gradient-to-b from-slate-800 to-slate-900 shadow-2xl overflow-hidden cursor-none"
       >
-        
-        {/* HUD (Score & Lives) */}
+        {/* HUD */}
         {gameState === 'playing' && (
-          <div className="absolute top-4 left-4 right-4 z-20 flex justify-between items-start pointer-events-none">
-             <div>
-                <div className="text-3xl font-black text-yellow-400 drop-shadow-md tracking-wider">
-                  {scoreDisplay}
+          <div className="absolute top-0 left-0 right-0 z-30 p-4 pointer-events-none">
+             <div className="flex justify-between items-center bg-slate-800/90 backdrop-blur border border-slate-600 rounded-2xl p-3 shadow-lg mb-4">
+                <div className="flex flex-col items-start">
+                    <span className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Target</span>
+                    <div className={`flex items-center gap-2 text-xl font-bold ${targetType.color} animate-pulse`}>
+                        <span>{targetType.emoji}</span>
+                        <span>{targetType.type}</span>
+                    </div>
                 </div>
-                <div className="flex gap-1 mt-1 text-xl">
-                  {[...Array(3)].map((_, i) => (
-                    <span key={i} className={`transition-opacity duration-300 ${i < livesDisplay ? "opacity-100" : "opacity-20 grayscale"}`}>
-                      ❤️
-                    </span>
-                  ))}
+                <div className={`text-3xl font-black font-mono ${timeLeft <= 10 ? 'text-red-500 animate-bounce' : 'text-white'}`}>
+                    {timeLeft}s
                 </div>
              </div>
-
-             <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl border border-white/20 text-center animate-pulse shadow-lg">
-                <p className="text-[10px] text-gray-300 uppercase tracking-widest font-bold">Misi</p>
-                <p className="text-xl font-bold text-emerald-400 drop-shadow-sm">{targetType}</p>
+             <div className="flex justify-between items-end">
+                <div>
+                    <span className="text-xs text-gray-500 font-bold">SKOR</span>
+                    <div className="text-5xl font-black text-yellow-400 drop-shadow-md leading-none">{scoreDisplay}</div>
+                </div>
+                <div className="flex gap-1 text-2xl">
+                   {[...Array(3)].map((_, i) => (
+                     <span key={i} className={`transition-all duration-300 ${i < livesDisplay ? "scale-100 opacity-100" : "scale-75 opacity-20 grayscale"}`}>❤️</span>
+                   ))}
+                </div>
              </div>
           </div>
         )}
 
-        {/* ITEMS (SAMPAH JATUH) */}
+        {/* ITEMS */}
         {gameState === 'playing' && items.map(item => (
-          <div
-            key={item.id}
-            style={{ 
-              left: `${item.x}%`, 
-              top: `${item.y}%`,
-              transform: 'translate(-50%, -50%)',
-            }}
-            className="absolute text-5xl transition-none z-10"
-          >
+          <div key={item.id} style={{ left: `${item.x}%`, top: `${item.y}%`, transform: 'translate(-50%, -50%)' }} className="absolute text-5xl z-10 pointer-events-none will-change-transform">
             {item.emoji}
           </div>
         ))}
 
-        {/* KERANJANG (PLAYER) */}
+        {/* KERANJANG */}
         {gameState === 'playing' && (
-          <div 
-            ref={basketRef}
-            style={{ left: `${basketX}%` }}
-            className="absolute bottom-[10%] -translate-x-1/2 w-24 h-20 z-20 transition-transform duration-75"
-          >
-             {/* Visual Keranjang */}
+          <div style={{ left: `${basketX}%` }} className="absolute bottom-[8%] -translate-x-1/2 w-28 h-24 z-20 pointer-events-none will-change-transform">
              <div className="w-full h-full relative">
-                <div className="absolute bottom-0 w-full h-4/5 bg-emerald-600 rounded-b-3xl rounded-t-lg border-4 border-emerald-400 shadow-[0_0_30px_rgba(52,211,153,0.4)] flex items-center justify-center">
-                    <span className="text-3xl drop-shadow-lg">🗑️</span>
+                <div className="absolute bottom-0 w-full h-4/5 bg-emerald-600 rounded-b-3xl rounded-t-lg border-b-4 border-emerald-900 shadow-[0_0_30px_rgba(16,185,129,0.3)] flex items-center justify-center">
+                    <span className="text-4xl">🗑️</span>
                 </div>
-                {/* Efek Mulut Keranjang */}
-                <div className="absolute top-0 w-full h-1/5 bg-emerald-800 rounded-full opacity-50 blur-sm"></div>
+                <div className="absolute top-0 w-full h-3 bg-emerald-400/50 blur-sm rounded-full animate-pulse"></div>
              </div>
           </div>
         )}
 
-        {/* MENU START */}
+        {/* MENU INTERNAL GAME */}
         {gameState === 'menu' && (
-           <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-md p-6 text-center">
-              <div className="text-6xl mb-4 animate-bounce">🎮</div>
-              <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300 mb-2">
-                IJO CATCHER
-              </h1>
-              <p className="text-gray-400 mb-8 max-w-xs leading-relaxed">
-                Geser keranjang ke kiri/kanan. Tangkap sampah sesuai perintah misi!
-              </p>
+           <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-900/90 backdrop-blur-sm p-8 text-center animate-in fade-in">
+              <div className="text-7xl mb-4 animate-bounce">♻️</div>
+              <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-600 mb-2">IJO CATCHER</h1>
+              <p className="text-gray-400 mb-8 max-w-xs text-sm">Tangkap sampah sesuai target!<br/><span className="text-yellow-400 font-bold">Waktu: 60 Detik</span></p>
               
-              <div className="bg-white/5 p-4 rounded-2xl w-full mb-8 border border-white/10 backdrop-blur-sm">
-                 <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">Rekor Kamu</p>
-                 <p className="text-4xl font-bold text-yellow-400">{user?.highScore || 0}</p>
+              <div className="bg-white/5 p-4 rounded-2xl w-full mb-8 border border-white/10">
+                 <p className="text-xs text-gray-500 uppercase font-bold tracking-widest mb-1">High Score</p>
+                 <p className="text-4xl font-bold text-white">{user?.highScore || 0}</p>
               </div>
 
-              <button 
-                onClick={handleStartGame}
-                className="w-full py-4 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 rounded-2xl font-bold text-xl transition-all active:scale-95 shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2"
-              >
-                <span>MULAI</span>
-                <span className="bg-black/20 text-sm px-2 py-1 rounded text-white/90">-1 Tiket</span>
+              <button onClick={handleStartGame} className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-bold text-xl text-white shadow-lg shadow-emerald-500/20 active:scale-95 transition-all mb-4">
+                MULAI MAIN (-1 Tiket)
               </button>
-
-              <Link href="/dashboard" className="mt-8 text-sm text-gray-500 hover:text-white transition-colors">
-                Kembali ke Dashboard
-              </Link>
+              <button onClick={onBack} className="text-sm text-gray-500 hover:text-white transition-colors">
+                Kembali ke Menu Game
+              </button>
            </div>
         )}
 
-        {/* MENU GAME OVER */}
+        {/* GAME OVER */}
         {gameState === 'gameover' && (
-           <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-gray-900/95 backdrop-blur-xl p-6 text-center animate-in zoom-in duration-300">
-              <div className="text-6xl mb-2">🏁</div>
-              <h2 className="text-3xl font-bold text-white mb-6">PERMAINAN SELESAI</h2>
-              
-              <div className="flex flex-col items-center gap-1 mb-10">
-                <span className="text-gray-400 text-sm uppercase tracking-widest">Skor Akhir</span>
-                <span className="text-6xl font-black text-yellow-400 drop-shadow-lg">{scoreRef.current}</span>
+           <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-900/95 backdrop-blur-xl p-8 text-center animate-in fade-in zoom-in duration-300">
+              <div className="text-6xl mb-4">🏁</div>
+              <h2 className="text-3xl font-bold text-white mb-2">SELESAI!</h2>
+              <div className="flex flex-col items-center gap-2 mb-10 bg-white/5 p-6 rounded-3xl border border-white/10 w-full">
+                <span className="text-gray-500 text-xs uppercase font-bold tracking-widest">Skor Akhir</span>
+                <span className="text-6xl font-black text-yellow-400 drop-shadow-xl">{scoreRef.current}</span>
               </div>
-
               <div className="flex flex-col gap-3 w-full">
-                <button 
-                  onClick={() => setGameState('menu')}
-                  className="w-full py-4 bg-white text-gray-900 font-bold rounded-2xl hover:bg-gray-200 transition-colors"
-                >
-                  Main Lagi
-                </button>
-                <Link href="/dashboard" className="w-full py-4 border border-white/10 rounded-2xl hover:bg-white/5 text-gray-400 hover:text-white transition-colors">
-                  Kembali ke Dashboard
-                </Link>
+                <button onClick={() => setGameState('menu')} className="w-full py-4 bg-white text-slate-900 font-bold rounded-2xl hover:bg-gray-200 transition-colors">Main Lagi</button>
+                <button onClick={onBack} className="w-full py-4 bg-transparent border border-white/20 rounded-2xl hover:bg-white/5 text-gray-400 hover:text-white transition-colors">Pilih Game Lain</button>
               </div>
            </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// BAGIAN 2: HALAMAN UTAMA (LOBBY/DASHBOARD GAME)
+// ============================================================================
+
+export default function GameCenterPage() {
+  const [activeGame, setActiveGame] = useState<'catcher' | null>(null);
+
+  // Jika ada game aktif, tampilkan komponen game tersebut
+  if (activeGame === 'catcher') {
+    return <IjoCatcherGame onBack={() => setActiveGame(null)} />;
+  }
+
+  // Tampilan LOBBY
+  return (
+    <main className="min-h-screen bg-[#F0FDF4] font-sans text-slate-800 pb-20 overflow-x-hidden selection:bg-emerald-200">
+      <Toaster position="top-center" />
+      
+      {/* Background Decor */}
+      <div className="fixed top-0 left-0 w-full h-full -z-10 pointer-events-none overflow-hidden">
+         <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] rounded-full bg-emerald-200/40 blur-[100px] animate-pulse"></div>
+         <div className="absolute bottom-[0%] left-[-10%] w-[500px] h-[500px] rounded-full bg-yellow-100/60 blur-[120px]"></div>
+         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-soft-light"></div>
+      </div>
+
+      <div className="mx-auto max-w-5xl px-6 py-10 relative z-10">
+        
+        {/* HEADER */}
+        <div className="flex items-center justify-between mb-12">
+            <Link 
+                href="/dashboard" 
+                className="group flex items-center gap-2 rounded-full bg-white/50 backdrop-blur-md border border-white/50 px-5 py-2.5 text-sm font-bold text-slate-600 transition-all hover:bg-white hover:text-emerald-700 hover:shadow-md"
+            >
+                <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                <span>Dashboard</span>
+            </Link>
+            <div className="hidden sm:block px-4 py-1.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold uppercase tracking-wider">
+                Arcade Zone
+            </div>
+        </div>
+
+        {/* HERO TITLE */}
+        <div className="text-center mb-16 space-y-4 animate-in slide-in-from-bottom-5 duration-700">
+            <h1 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tight">
+                Pilih <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-600">Tantanganmu</span>
+            </h1>
+            <p className="text-lg text-slate-500 max-w-2xl mx-auto leading-relaxed">
+                Asah ketangkasan dan pengetahuan lingkunganmu melalui berbagai mini-game seru. Kumpulkan poin dan tukarkan dengan hadiah!
+            </p>
+        </div>
+
+        {/* GAME CARDS GRID */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            
+            {/* GAME 1: IJO CATCHER (AKTIF) */}
+            <div 
+                onClick={() => setActiveGame('catcher')}
+                className="group relative cursor-pointer rounded-[2.5rem] bg-white p-2 shadow-xl shadow-emerald-900/5 transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-emerald-900/10 animate-in zoom-in duration-500"
+            >
+                <div className="absolute -top-3 -right-3 z-20">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-400 text-xl shadow-lg animate-bounce">🔥</span>
+                </div>
+                
+                <div className="relative h-48 w-full overflow-hidden rounded-[2rem] bg-gradient-to-br from-emerald-400 to-teal-600">
+                    <div className="absolute inset-0 flex items-center justify-center text-8xl transition-transform duration-500 group-hover:scale-110">
+                        ♻️
+                    </div>
+                    {/* Overlay Play Icon */}
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 transition-opacity duration-300 group-hover:opacity-100 backdrop-blur-[2px]">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white text-emerald-600 shadow-xl">
+                            <Play className="ml-1 w-8 h-8 fill-current" />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-6">
+                    <div className="mb-2 flex items-center gap-2">
+                        <span className="rounded-lg bg-emerald-100 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700">Ketangkasan</span>
+                        <span className="rounded-lg bg-yellow-100 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-yellow-700 flex items-center gap-1">
+                            <Star className="w-3 h-3 fill-yellow-700" /> Popular
+                        </span>
+                    </div>
+                    <h3 className="mb-2 text-2xl font-black text-slate-800 group-hover:text-emerald-600 transition-colors">Ijo Catcher</h3>
+                    <p className="text-sm text-slate-500 leading-relaxed">
+                        Tangkap sampah yang jatuh sesuai target. Jangan sampai salah ambil atau nyawamu berkurang!
+                    </p>
+                    <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4">
+                        <div className="flex items-center gap-1 text-xs font-bold text-slate-400">
+                            <Timer className="w-4 h-4" /> 60 Detik
+                        </div>
+                        <span className="text-sm font-bold text-emerald-600 group-hover:translate-x-1 transition-transform">Main Sekarang →</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* GAME 2: NEURO SNAKE (LOCKED) */}
+            <div className="group relative rounded-[2.5rem] bg-white p-2 opacity-80 transition-all duration-300 hover:opacity-100 hover:shadow-xl grayscale hover:grayscale-0">
+                <div className="relative h-48 w-full overflow-hidden rounded-[2rem] bg-slate-100">
+                    <div className="absolute inset-0 flex items-center justify-center text-8xl text-slate-300">
+                        🐍
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md">
+                            <Lock className="w-6 h-6" />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-6">
+                    <div className="mb-2 flex items-center gap-2">
+                        <span className="rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">Coming Soon</span>
+                    </div>
+                    <h3 className="mb-2 text-2xl font-black text-slate-400">Neuro Snake</h3>
+                    <p className="text-sm text-slate-400 leading-relaxed">
+                        Game klasik ular dengan twist edukasi. Makan sampah organik untuk tumbuh besar!
+                    </p>
+                    <div className="mt-6 border-t border-slate-100 pt-4">
+                        <button disabled className="w-full rounded-xl bg-slate-100 py-2 text-xs font-bold text-slate-400">
+                            Segera Hadir
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* GAME 3: ECO QUIZ (LOCKED) */}
+            <div className="group relative rounded-[2.5rem] bg-white p-2 opacity-80 transition-all duration-300 hover:opacity-100 hover:shadow-xl grayscale hover:grayscale-0">
+                <div className="relative h-48 w-full overflow-hidden rounded-[2rem] bg-slate-100">
+                    <div className="absolute inset-0 flex items-center justify-center text-8xl text-slate-300">
+                        🧠
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md">
+                            <Lock className="w-6 h-6" />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-6">
+                    <div className="mb-2 flex items-center gap-2">
+                        <span className="rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">Coming Soon</span>
+                    </div>
+                    <h3 className="mb-2 text-2xl font-black text-slate-400">Eco Quiz</h3>
+                    <p className="text-sm text-slate-400 leading-relaxed">
+                        Uji pengetahuanmu seputar lingkungan. Jawab cepat dan tepat untuk menang!
+                    </p>
+                    <div className="mt-6 border-t border-slate-100 pt-4">
+                        <button disabled className="w-full rounded-xl bg-slate-100 py-2 text-xs font-bold text-slate-400">
+                            Segera Hadir
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
 
       </div>
     </main>

@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/axios';
 import toast, { Toaster } from 'react-hot-toast';
+import { User, GraduationCap, Mail, Lock, ArrowLeft, Loader2, UserPlus } from 'lucide-react';
+import { getDriveImage } from '@/app/utils/driveHelper';
 
 // 1. Interface Data Form
 interface RegisterFormInputs {
@@ -74,7 +76,6 @@ export default function RegisterPage() {
         router.push('/login');
       }, 2000);
     } catch (error) {
-      // PERBAIKAN: Menghapus ': any' di catch dan melakukan casting di sini
       const err = error as ApiError;
       const errorMessage = err.response?.data?.message || 'Gagal mendaftar. Coba lagi.';
       toast.error(errorMessage);
@@ -85,7 +86,7 @@ export default function RegisterPage() {
   if (loadingContent) {
      return (
         <div className="min-h-screen flex items-center justify-center bg-white">
-             <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent"></div>
+             <div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-100 border-t-emerald-600"></div>
         </div>
      );
   }
@@ -101,129 +102,158 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex bg-white font-sans selection:bg-emerald-200">
+    <div className="min-h-screen w-full flex bg-white font-sans text-emerald-950 selection:bg-emerald-200 selection:text-emerald-900">
       <Toaster position="top-center" />
 
-      {/* --- BAGIAN KIRI (Visual & Branding - Dinamis) --- */}
-      <div className="hidden lg:flex w-1/2 relative bg-emerald-900 overflow-hidden flex-col justify-between p-12 text-white">
+      {/* --- BAGIAN KIRI (Visual & Branding) - Identik dengan Login --- */}
+      <div className="hidden lg:flex w-1/2 relative bg-emerald-950 overflow-hidden flex-col justify-between p-12 text-white">
         
         {/* Background Animation */}
-        <div className="absolute top-0 left-0 w-full h-full z-0">
-            <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-emerald-500/20 blur-[100px] animate-pulse"></div>
+        <div className="absolute top-0 left-0 w-full h-full z-0 pointer-events-none">
+            <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full bg-emerald-500/20 blur-[120px] animate-pulse"></div>
             <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-teal-600/20 blur-[120px]"></div>
         </div>
 
         <div className="relative z-10">
-            <Link href="/" className="flex items-center gap-3 mb-8 w-fit hover:opacity-80 transition-opacity cursor-pointer">
-                <div className="h-10 w-10 bg-white/10 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/20">
-                    <span className="text-2xl">{c.logo_emoji}</span>
+            <Link href="/" className="flex items-center gap-4 mb-12 w-fit hover:opacity-80 transition-opacity cursor-pointer group">
+                <div className="h-14 w-14 bg-white/10 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/10 overflow-hidden shadow-sm group-hover:scale-105 transition-transform">
+                    {(c.logo_emoji && (c.logo_emoji.includes('http') || c.logo_emoji.includes('/'))) ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img 
+                            src={getDriveImage(c.logo_emoji)} 
+                            alt="Logo"
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                        />
+                    ) : (
+                        <span className="text-3xl">{c.logo_emoji}</span>
+                    )}
                 </div>
-                <span className="font-bold text-xl tracking-wide uppercase">{c.project_name}</span>
+                <span className="font-bold text-xl tracking-wider uppercase opacity-90">{c.project_name}</span>
             </Link>
             
-            <h1 className="text-5xl font-black leading-tight mb-6">
+            <h1 className="text-5xl lg:text-6xl font-black leading-none tracking-tight mb-6">
                 {c.register_title_start} <br/> 
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">
                     {c.register_title_end}
                 </span>
             </h1>
-            <p className="text-emerald-200/80 text-lg max-w-md leading-relaxed">
+            <p className="text-emerald-100/80 text-lg max-w-md leading-relaxed font-medium">
                 {c.register_desc}
             </p>
         </div>
 
-        <div className="relative z-10 bg-white/5 backdrop-blur-md border border-white/10 p-6 rounded-2xl">
-            <p className="italic text-emerald-100 mb-4">&quot;{c.register_quote}&quot;</p>
-            <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-yellow-400 to-orange-500"></div>
+        {/* Quote Card */}
+        <div className="relative z-10 bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-3xl shadow-2xl shadow-emerald-900/50">
+            <p className="italic text-emerald-50 mb-6 text-lg font-light leading-relaxed">&quot;{c.register_quote}&quot;</p>
+            <div className="flex items-center gap-4">
+                <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-yellow-400 to-orange-500 shadow-lg border-2 border-white/20"></div>
                 <div>
-                    <p className="text-sm font-bold">Tim {c.project_name}</p>
-                    <p className="text-xs text-emerald-300">Official Message</p>
+                    <p className="text-sm font-bold text-white">Tim {c.project_name}</p>
+                    <p className="text-xs text-emerald-300 font-medium uppercase tracking-wider">Official Message</p>
                 </div>
             </div>
         </div>
       </div>
 
-      {/* --- BAGIAN KANAN (Form Register - Powerfull) --- */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 lg:p-24 relative">
-        <Link href="/" className="absolute top-8 left-8 flex items-center gap-2 text-slate-400 hover:text-emerald-600 transition-colors font-medium text-sm group">
-            <span className="group-hover:-translate-x-1 transition-transform">←</span> Kembali ke Beranda
+      {/* --- BAGIAN KANAN (Form Register) --- */}
+      {/* Ubah p-12 menjadi p-24 agar lebih lega dan mirip Login */}
+      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 lg:p-24 relative bg-white">
+        
+        {/* Tombol Kembali - Tetap Absolute tapi container form akan kita beri jarak */}
+        <Link href="/" className="absolute top-8 left-8 flex items-center gap-2 text-emerald-800/60 hover:text-emerald-600 transition-colors font-bold text-sm group z-20">
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> 
+            Kembali ke Beranda
         </Link>
 
-        <div className="w-full max-w-md space-y-8 mt-10 lg:mt-0">
-            <div className="text-center lg:text-left">
-                <h2 className="text-3xl font-black text-slate-900 tracking-tight">Buat Akun Baru</h2>
-                <p className="text-slate-500 mt-2">Lengkapi data dirimu untuk memulai.</p>
+        {/* Container Form - Menambahkan mt-12 agar judul tidak menabrak tombol kembali saat layar pendek */}
+        <div className="w-full max-w-md space-y-8 mt-20 lg:mt-0">
+            <div className="text-center lg:text-left space-y-2">
+                <h2 className="text-4xl font-black text-emerald-950 tracking-tight">Buat Akun Baru</h2>
+                <p className="text-emerald-800/70 font-medium text-lg">Lengkapi data dirimu untuk memulai.</p>
             </div>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
                 
                 {/* Nama Lengkap */}
-                <div className={`group relative transition-all duration-300 rounded-2xl border-2 bg-white focus-within:border-emerald-500 focus-within:bg-emerald-50/30 ${errors.fullName ? 'border-red-300 bg-red-50/30' : 'border-slate-200'}`}>
-                    <div className="absolute top-3 left-4 text-xl opacity-50 group-focus-within:opacity-100 group-focus-within:text-emerald-600 transition-opacity">👤</div>
+                <div className={`group relative transition-all duration-300 rounded-2xl border-2 bg-emerald-50/30 ${errors.fullName ? 'border-red-200 bg-red-50' : 'border-emerald-100 focus-within:border-emerald-500 focus-within:bg-white focus-within:shadow-lg focus-within:shadow-emerald-500/10'}`}>
+                    <div className="absolute top-1/2 -translate-y-1/2 left-4 text-emerald-800/40 group-focus-within:text-emerald-600 transition-colors">
+                        <User className="w-5 h-5" />
+                    </div>
                     <input 
                         type="text" 
                         placeholder="Nama Lengkap"
-                        className="w-full bg-transparent pl-12 pr-4 py-4 outline-none text-slate-800 font-medium placeholder:text-slate-400"
+                        className="w-full bg-transparent pl-12 pr-4 py-4 outline-none text-emerald-950 font-semibold placeholder:text-emerald-800/30"
                         {...register('fullName', { required: 'Nama wajib diisi' })}
                     />
                 </div>
-                {errors.fullName && <p className="text-xs text-red-500 ml-2 font-bold">⚠️ {errors.fullName.message}</p>}
+                {errors.fullName && <p className="text-xs text-red-500 ml-2 font-bold flex items-center gap-1 mt-1">⚠️ {errors.fullName.message}</p>}
 
                 {/* Kelas */}
-                <div className={`group relative transition-all duration-300 rounded-2xl border-2 bg-white focus-within:border-emerald-500 focus-within:bg-emerald-50/30 ${errors.schoolClass ? 'border-red-300 bg-red-50/30' : 'border-slate-200'}`}>
-                    <div className="absolute top-3 left-4 text-xl opacity-50 group-focus-within:opacity-100 group-focus-within:text-emerald-600 transition-opacity">🎓</div>
+                <div className={`group relative transition-all duration-300 rounded-2xl border-2 bg-emerald-50/30 ${errors.schoolClass ? 'border-red-200 bg-red-50' : 'border-emerald-100 focus-within:border-emerald-500 focus-within:bg-white focus-within:shadow-lg focus-within:shadow-emerald-500/10'}`}>
+                    <div className="absolute top-1/2 -translate-y-1/2 left-4 text-emerald-800/40 group-focus-within:text-emerald-600 transition-colors">
+                        <GraduationCap className="w-5 h-5" />
+                    </div>
                     <input 
                         type="text" 
                         placeholder="Kelas (Contoh: X IPA 1)"
-                        className="w-full bg-transparent pl-12 pr-4 py-4 outline-none text-slate-800 font-medium placeholder:text-slate-400"
+                        className="w-full bg-transparent pl-12 pr-4 py-4 outline-none text-emerald-950 font-semibold placeholder:text-emerald-800/30"
                         {...register('schoolClass', { required: 'Kelas wajib diisi' })}
                     />
                 </div>
-                {errors.schoolClass && <p className="text-xs text-red-500 ml-2 font-bold">⚠️ {errors.schoolClass.message}</p>}
+                {errors.schoolClass && <p className="text-xs text-red-500 ml-2 font-bold flex items-center gap-1 mt-1">⚠️ {errors.schoolClass.message}</p>}
 
                 {/* Email */}
-                <div className={`group relative transition-all duration-300 rounded-2xl border-2 bg-white focus-within:border-emerald-500 focus-within:bg-emerald-50/30 ${errors.email ? 'border-red-300 bg-red-50/30' : 'border-slate-200'}`}>
-                    <div className="absolute top-3 left-4 text-xl opacity-50 group-focus-within:opacity-100 group-focus-within:text-emerald-600 transition-opacity">📧</div>
+                <div className={`group relative transition-all duration-300 rounded-2xl border-2 bg-emerald-50/30 ${errors.email ? 'border-red-200 bg-red-50' : 'border-emerald-100 focus-within:border-emerald-500 focus-within:bg-white focus-within:shadow-lg focus-within:shadow-emerald-500/10'}`}>
+                    <div className="absolute top-1/2 -translate-y-1/2 left-4 text-emerald-800/40 group-focus-within:text-emerald-600 transition-colors">
+                        <Mail className="w-5 h-5" />
+                    </div>
                     <input 
                         type="email" 
                         placeholder="Email Sekolah"
-                        className="w-full bg-transparent pl-12 pr-4 py-4 outline-none text-slate-800 font-medium placeholder:text-slate-400"
+                        className="w-full bg-transparent pl-12 pr-4 py-4 outline-none text-emerald-950 font-semibold placeholder:text-emerald-800/30"
                         {...register('email', { required: 'Email wajib diisi' })}
                     />
                 </div>
-                {errors.email && <p className="text-xs text-red-500 ml-2 font-bold">⚠️ {errors.email.message}</p>}
+                {errors.email && <p className="text-xs text-red-500 ml-2 font-bold flex items-center gap-1 mt-1">⚠️ {errors.email.message}</p>}
 
                 {/* Password */}
-                <div className={`group relative transition-all duration-300 rounded-2xl border-2 bg-white focus-within:border-emerald-500 focus-within:bg-emerald-50/30 ${errors.password ? 'border-red-300 bg-red-50/30' : 'border-slate-200'}`}>
-                    <div className="absolute top-3 left-4 text-xl opacity-50 group-focus-within:opacity-100 group-focus-within:text-emerald-600 transition-opacity">🔒</div>
+                <div className={`group relative transition-all duration-300 rounded-2xl border-2 bg-emerald-50/30 ${errors.password ? 'border-red-200 bg-red-50' : 'border-emerald-100 focus-within:border-emerald-500 focus-within:bg-white focus-within:shadow-lg focus-within:shadow-emerald-500/10'}`}>
+                    <div className="absolute top-1/2 -translate-y-1/2 left-4 text-emerald-800/40 group-focus-within:text-emerald-600 transition-colors">
+                        <Lock className="w-5 h-5" />
+                    </div>
                     <input 
                         type="password" 
                         placeholder="Password (Min. 8 Karakter)"
-                        className="w-full bg-transparent pl-12 pr-4 py-4 outline-none text-slate-800 font-medium placeholder:text-slate-400"
+                        className="w-full bg-transparent pl-12 pr-4 py-4 outline-none text-emerald-950 font-semibold placeholder:text-emerald-800/30"
                         {...register('password', { required: 'Password wajib diisi', minLength: { value: 8, message: 'Minimal 8 karakter' } })}
                     />
                 </div>
-                {errors.password && <p className="text-xs text-red-500 ml-2 font-bold">⚠️ {errors.password.message}</p>}
+                {errors.password && <p className="text-xs text-red-500 ml-2 font-bold flex items-center gap-1 mt-1">⚠️ {errors.password.message}</p>}
 
                 {/* Submit Button */}
                 <button 
                     type="submit" disabled={isSubmitting}
-                    className="w-full rounded-2xl bg-slate-900 py-4 font-bold text-white shadow-xl shadow-slate-900/20 transition-all hover:bg-emerald-600 hover:shadow-emerald-500/30 hover:-translate-y-1 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
+                    className="w-full rounded-2xl bg-emerald-600 py-4 font-bold text-lg text-white shadow-xl shadow-emerald-500/30 transition-all hover:bg-emerald-500 hover:shadow-emerald-500/50 hover:-translate-y-1 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                     {isSubmitting ? (
-                        <div className="flex items-center justify-center gap-2">
-                           <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                        <>
+                           <Loader2 className="w-5 h-5 animate-spin" />
                            <span>Memproses Data...</span>
-                        </div>
-                    ) : "Daftar Sekarang →"}
+                        </>
+                    ) : (
+                        <>
+                           <UserPlus className="w-5 h-5" />
+                           <span>Daftar Sekarang</span>
+                        </>
+                    )}
                 </button>
             </form>
 
-            <div className="text-center">
-                <p className="text-slate-500 text-sm">
+            <div className="text-center pt-4">
+                <p className="text-emerald-800/60 font-medium">
                     Sudah punya akun?{' '}
-                    <Link href="/login" className="font-bold text-emerald-600 hover:text-emerald-700 underline decoration-2 decoration-transparent hover:decoration-emerald-600 transition-all">
+                    <Link href="/login" className="font-extrabold text-emerald-600 hover:text-emerald-500 hover:underline decoration-2 underline-offset-4 transition-all">
                         Login disini
                     </Link>
                 </p>

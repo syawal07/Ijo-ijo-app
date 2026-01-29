@@ -6,7 +6,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import api from '@/lib/axios';
 import Link from 'next/link';
 import * as tmImage from '@teachablemachine/image';
-import { ArrowLeft, Loader2, ScanLine, Zap, CheckCircle2, Camera } from 'lucide-react';
+import { ArrowLeft, Loader2, Zap, Scan, Aperture, RefreshCw, XCircle } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -44,7 +44,7 @@ export default function ScanPage() {
   const lastUiUpdateRef = useRef<number>(0);
   const isSendingRef = useRef<boolean>(false);
 
-  // --- FUNGSI API ---
+  // --- FUNGSI API (LOGIC TETAP SAMA) ---
   const handleLapor = useCallback(async (detectedClass: string, isManual = false) => {
     if (isSendingRef.current) return;
     isSendingRef.current = true;
@@ -65,10 +65,10 @@ export default function ScanPage() {
 
       toast.success(
         <div className="flex flex-col">
-          <span className="font-bold">{isManual ? 'Laporan Manual Sukses!' : 'Sampah Terdeteksi!'}</span>
-          <span className="text-xs">Kamu dapat +{data.reward} Koin</span>
+          <span className="font-bold text-sm">{isManual ? 'Manual Scan Sukses!' : 'Objek Teridentifikasi!'}</span>
+          <span className="text-xs">Reward: +{data.reward} Koin</span>
         </div>,
-        { duration: 3000, icon: '🌱' }
+        { duration: 4000, icon: '🤖', style: { borderRadius: '12px', background: '#064e3b', color: '#fff' } }
       );
 
       if (data.tickets > 0 && data.newCoinBalance === 0) {
@@ -76,7 +76,7 @@ export default function ScanPage() {
       }
 
       router.refresh();
-      setTimeout(() => router.push('/dashboard'), 1500);
+      setTimeout(() => router.push('/dashboard'), 2000);
 
     } catch (error) {
       console.error("Gagal Lapor:", error);
@@ -88,7 +88,7 @@ export default function ScanPage() {
     }
   }, [router]);
 
-  // --- INIT & LOOP ---
+  // --- INIT & LOOP (LOGIC TETAP SAMA) ---
   useEffect(() => {
     isMountedRef.current = true;
 
@@ -116,7 +116,7 @@ export default function ScanPage() {
                     stabilityCounterRef.current = Math.max(0, stabilityCounterRef.current - 1);
                 }
 
-                // Trigger Auto Send (Hanya jika SANGAT yakin)
+                // Trigger Auto Send
                 if (stabilityCounterRef.current >= STABILITY_FRAMES && !isSendingRef.current) {
                     handleLapor(currentClassRef.current!);
                 }
@@ -124,9 +124,7 @@ export default function ScanPage() {
                 // Update UI
                 if (now - lastUiUpdateRef.current > UI_UPDATE_DELAY) {
                     setPredictions(sorted.slice(0, 3));
-                    // Kita set Best Guess lebih agresif (di atas 40% sudah tampil namanya)
-                    // Supaya tombol manual bisa aktif lebih cepat
-                    setBestGuess(topResult.probability > 0.4 ? topResult.className : null);
+                    setBestGuess(topResult.probability > 0.45 ? topResult.className : null);
                     
                     const progress = Math.min(100, (stabilityCounterRef.current / STABILITY_FRAMES) * 100);
                     setScanProgress(progress);
@@ -145,7 +143,7 @@ export default function ScanPage() {
         const loadedModel = await tmImage.load(modelURL, metadataURL);
         modelRef.current = loadedModel;
 
-        const webcam = new tmImage.Webcam(224, 224, true); 
+        const webcam = new tmImage.Webcam(400, 400, true); // Resolusi sedikit dinaikkan
         await webcam.setup();
         
         if (!isMountedRef.current) return; 
@@ -159,7 +157,7 @@ export default function ScanPage() {
 
         if (webcamRef.current) {
             webcamRef.current.innerHTML = ''; 
-            webcam.canvas.className = "absolute inset-0 w-full h-full object-cover";
+            webcam.canvas.className = "absolute inset-0 w-full h-full object-cover filter contrast-110"; // Tambah kontras dikit
             webcamRef.current.appendChild(webcam.canvas);
         }
 
@@ -180,7 +178,7 @@ export default function ScanPage() {
       isMountedRef.current = false;
       if (requestRef.current) window.cancelAnimationFrame(requestRef.current);
       if (webcamInstanceRef.current) {
-         try { webcamInstanceRef.current.stop(); } catch(e) {}
+        try { webcamInstanceRef.current.stop(); } catch(e) {}
       }
     };
   }, [handleLapor]);
@@ -189,134 +187,184 @@ export default function ScanPage() {
     <main className="fixed inset-0 bg-black text-white overflow-hidden flex flex-col font-sans select-none">
       <Toaster position="top-center" />
 
-      {/* HEADER */}
-      <header className="absolute top-0 left-0 right-0 z-30 p-6 flex justify-between items-start bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
-        <Link href="/dashboard" className="pointer-events-auto p-3 bg-white/10 backdrop-blur-md rounded-full active:scale-95 transition border border-white/10">
-            <ArrowLeft size={24} className="text-white" />
+      {/* --- HEADER (HUD Style) --- */}
+      <header className="absolute top-0 left-0 right-0 z-30 pt-safe-top px-6 py-4 flex justify-between items-start pointer-events-none">
+        {/* Tombol Back */}
+        <Link href="/dashboard" className="pointer-events-auto group flex items-center justify-center w-10 h-10 bg-black/40 backdrop-blur-md rounded-full border border-white/20 active:scale-95 transition-all hover:bg-emerald-500/20 hover:border-emerald-500/50">
+            <ArrowLeft size={20} className="text-white group-hover:text-emerald-400" />
         </Link>
-        <div className="text-right">
-            <h1 className="font-bold text-lg tracking-wider text-white">AI SCANNER</h1>
-            <div className="flex items-center justify-end gap-2 text-[10px] text-emerald-400 font-mono tracking-widest uppercase mt-1">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+        
+        {/* Status AI */}
+        <div className="flex flex-col items-end">
+            <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
+                <div className={`w-2 h-2 rounded-full ${isCameraReady ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></div>
+                <span className="text-[10px] font-mono font-bold tracking-widest text-emerald-100/80">
+                    AI VISION v2.0
                 </span>
-                System Online
             </div>
         </div>
       </header>
 
-      {/* VIEWPORT KAMERA */}
-      <div className="relative flex-1 bg-gray-900 w-full h-full overflow-hidden">
+      {/* --- VIEWPORT KAMERA --- */}
+      <div className="relative flex-1 bg-gray-950 w-full h-full overflow-hidden">
         
+        {/* Loading / Error State */}
         {!isCameraReady && (
-             <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-gray-900 text-center px-6">
+             <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-gray-950/90 text-center px-6">
                 {errorMessage ? (
-                    <>
-                        <Zap className="text-red-500 mb-4" size={48} />
-                        <p className="text-red-400 font-medium">{errorMessage}</p>
-                        <button onClick={() => window.location.reload()} className="mt-6 px-6 py-2 bg-white/10 rounded-full text-sm hover:bg-white/20">Coba Reload</button>
-                    </>
+                    <div className="bg-red-500/10 p-6 rounded-2xl border border-red-500/20">
+                        <XCircle className="text-red-500 mb-4 mx-auto" size={48} />
+                        <p className="text-red-400 font-bold mb-2">Akses Ditolak</p>
+                        <p className="text-red-400/70 text-sm">{errorMessage}</p>
+                        <button onClick={() => window.location.reload()} className="mt-6 px-6 py-2 bg-red-600 text-white rounded-full text-sm font-bold hover:bg-red-700 transition-colors flex items-center gap-2 mx-auto">
+                            <RefreshCw size={16} /> Coba Lagi
+                        </button>
+                    </div>
                 ) : (
-                    <>
-                        <Loader2 className="animate-spin text-emerald-500 mb-4" size={48} />
-                        <p className="text-sm text-emerald-500 font-bold tracking-widest animate-pulse">MEMUAT MODEL AI...</p>
-                    </>
+                    <div className="flex flex-col items-center">
+                        <div className="relative">
+                            <div className="w-16 h-16 rounded-full border-4 border-emerald-500/30 border-t-emerald-500 animate-spin"></div>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <Aperture size={24} className="text-emerald-500 animate-pulse" />
+                            </div>
+                        </div>
+                        <p className="mt-6 text-sm text-emerald-500 font-mono font-bold tracking-[0.2em] animate-pulse">INITIALIZING...</p>
+                    </div>
                 )}
              </div>
         )}
 
+        {/* Video Feed */}
         <div ref={webcamRef} className="absolute inset-0 w-full h-full z-0 transform scale-x-[-1]" />
         
+        {/* --- OVERLAYS VISUAL (HUD) --- */}
         {isCameraReady && !isProcessing && (
             <>
-                <div className="absolute inset-0 pointer-events-none opacity-20 bg-black/20 z-10" />
-                <div className="absolute inset-x-0 h-[3px] bg-emerald-500/80 shadow-[0_0_25px_rgba(16,185,129,0.8)] z-10 animate-[scan_2.5s_ease-in-out_infinite]" />
+                {/* Vignette Gelap di pinggir agar fokus ke tengah */}
+                <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,transparent_30%,rgba(0,0,0,0.8)_100%)] z-10" />
+                
+                {/* Grid Pattern Halus */}
+                <div className="absolute inset-0 pointer-events-none opacity-10 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] z-0 mix-blend-overlay"></div>
+
+                {/* Scan Line Laser */}
+                <div className="absolute inset-x-0 h-[2px] bg-emerald-400/80 shadow-[0_0_40px_rgba(52,211,153,0.8)] z-10 animate-[scan_3s_ease-in-out_infinite]" />
+
+                {/* RETICLE (Kotak Bidik Tengah) */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 border border-white/20 rounded-3xl z-10 pointer-events-none">
+                    {/* Corner Brackets */}
+                    <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-emerald-500 rounded-tl-xl -mt-1 -ml-1"></div>
+                    <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-emerald-500 rounded-tr-xl -mt-1 -mr-1"></div>
+                    <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-emerald-500 rounded-bl-xl -mb-1 -ml-1"></div>
+                    <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-emerald-500 rounded-br-xl -mb-1 -mr-1"></div>
+                    
+                    {/* Center Crosshair */}
+                    <div className="absolute top-1/2 left-1/2 w-4 h-4 -translate-x-1/2 -translate-y-1/2">
+                        <div className="absolute top-0 left-1/2 w-[1px] h-full bg-white/50 -translate-x-1/2"></div>
+                        <div className="absolute top-1/2 left-0 w-full h-[1px] bg-white/50 -translate-y-1/2"></div>
+                    </div>
+                </div>
+
+                {/* Progress Circle (Indikator Auto-Lock) */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+                     <div className={cn("relative transition-all duration-300 ease-out", scanProgress > 5 ? 'scale-100 opacity-100' : 'scale-90 opacity-0')}>
+                        <svg className="w-72 h-72 -rotate-90 drop-shadow-[0_0_15px_rgba(16,185,129,0.6)]">
+                             <circle cx="144" cy="144" r="140" stroke="currentColor" strokeWidth="2" fill="transparent" className="text-white/10" />
+                             <circle 
+                                cx="144" cy="144" r="140" 
+                                stroke="currentColor" strokeWidth="4" fill="transparent" 
+                                className="text-emerald-400 transition-all duration-100 ease-linear"
+                                strokeDasharray={880} 
+                                strokeDashoffset={880 - (880 * scanProgress) / 100}
+                                strokeLinecap="round"
+                             />
+                        </svg>
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 bg-black/60 backdrop-blur px-3 py-1 rounded text-emerald-400 text-xs font-mono font-bold tracking-widest">
+                            LOCKING TARGET... {Math.round(scanProgress)}%
+                        </div>
+                     </div>
+                </div>
             </>
         )}
-
-        {/* PROGRESS CIRCLE (Auto Scan Indikator) */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-             <div className={cn("relative transition-all duration-300 ease-out", scanProgress > 5 ? 'scale-100 opacity-100' : 'scale-90 opacity-0')}>
-                <div className="w-64 h-64 rounded-full border border-white/20 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
-                <svg className="w-64 h-64 -rotate-90 drop-shadow-[0_0_15px_rgba(16,185,129,0.6)]">
-                     <circle cx="128" cy="128" r="124" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-transparent" />
-                     <circle 
-                        cx="128" cy="128" r="124" 
-                        stroke="currentColor" strokeWidth="6" fill="transparent" 
-                        className="text-emerald-500 transition-all duration-100 ease-linear"
-                        strokeDasharray={779} 
-                        strokeDashoffset={779 - (779 * scanProgress) / 100}
-                        strokeLinecap="round"
-                     />
-                </svg>
-             </div>
-        </div>
       </div>
 
-      {/* FOOTER & BUTTON AREA */}
-      <div className="relative z-30 bg-black/80 backdrop-blur-xl border-t border-white/10 p-6 pb-8 rounded-t-3xl -mt-6">
+      {/* --- FOOTER & CONTROLS --- */}
+      <div className="relative z-30 bg-gradient-to-t from-black via-black/90 to-transparent pt-10 pb-8 px-6 -mt-24">
          
-         <div className="flex justify-between items-center mb-4">
-             <div className="flex items-center gap-2">
-                <CheckCircle2 size={16} className={bestGuess ? "text-emerald-500" : "text-gray-600"} />
-                <span className="text-xs font-mono text-gray-400 uppercase tracking-widest">
-                    {isProcessing ? "MENGIRIM..." : bestGuess ? `TERDETEKSI: ${bestGuess}` : "MENCARI OBJEK..."}
-                </span>
+         <div className="flex justify-between items-end mb-6">
+             {/* Text Indikator */}
+             <div>
+                <p className="text-xs text-emerald-400 font-mono font-bold tracking-widest mb-1">
+                    {isProcessing ? "ANALYZING DATA..." : "TARGET SCANNER"}
+                </p>
+                <h2 className={cn("text-2xl font-black tracking-tight transition-colors", bestGuess ? "text-white" : "text-white/40")}>
+                    {isProcessing ? "Mohon Tunggu..." : bestGuess ? bestGuess.toUpperCase() : "Cari Objek..."}
+                </h2>
+             </div>
+             
+             {/* Icon Status */}
+             <div className={cn("w-12 h-12 rounded-full flex items-center justify-center border transition-all", 
+                bestGuess ? "bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.3)]" : "bg-white/5 border-white/10 text-white/20")}>
+                 {isProcessing ? <Loader2 className="animate-spin" /> : <Scan />}
              </div>
          </div>
 
-         {/* GRAFIK BAR */}
-         <div className="space-y-3 mb-6">
+         {/* Bar Probabilitas (Desain Baru) */}
+         <div className="space-y-3 mb-6 bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10">
             {predictions.length > 0 ? predictions.map((pred, i) => (
-                <div key={i} className="flex items-center gap-3 text-xs">
-                    <span className={cn("w-24 text-right truncate font-medium", pred.className === bestGuess ? 'text-white' : 'text-gray-500')}>
+                <div key={i} className="flex items-center gap-3">
+                    <span className={cn("w-20 text-xs font-bold truncate text-right", pred.className === bestGuess ? 'text-emerald-300' : 'text-gray-500')}>
                         {pred.className}
                     </span>
-                    <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+                    <div className="flex-1 h-1.5 bg-gray-700/50 rounded-full overflow-hidden">
                         <div 
-                            className={cn("h-full rounded-full transition-all duration-300", pred.className === bestGuess ? 'bg-emerald-500 shadow-[0_0_10px_#10b981]' : 'bg-gray-700')}
+                            className={cn("h-full rounded-full transition-all duration-300 relative", 
+                                pred.className === bestGuess ? 'bg-gradient-to-r from-emerald-600 to-emerald-400' : 'bg-gray-600')}
                             style={{ width: `${pred.probability * 100}%` }}
-                        />
+                        >
+                            {pred.className === bestGuess && <div className="absolute right-0 top-0 bottom-0 w-2 bg-white/50 blur-[2px]"></div>}
+                        </div>
                     </div>
-                    <span className="w-10 text-right font-mono text-gray-500">{Math.round(pred.probability*100)}%</span>
+                    <span className="w-8 text-xs font-mono text-gray-400">{Math.round(pred.probability*100)}%</span>
                 </div>
             )) : (
-                <div className="text-center py-2 text-xs text-gray-600">Menunggu objek masuk ke frame...</div>
+                <div className="text-center py-2 text-xs text-gray-500 italic">Arahkan kamera ke sampah...</div>
             )}
          </div>
 
-         {/* TOMBOL MANUAL (BARU) */}
+         {/* Tombol Manual Action */}
          <button 
             onClick={() => bestGuess && handleLapor(bestGuess, true)}
             disabled={!bestGuess || isProcessing}
             className={cn(
-                "w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg",
+                "w-full py-4 rounded-2xl font-black tracking-wide flex items-center justify-center gap-3 transition-all duration-300 border",
                 bestGuess && !isProcessing 
-                    ? "bg-emerald-500 hover:bg-emerald-400 text-white shadow-emerald-500/20" 
-                    : "bg-gray-800 text-gray-500 cursor-not-allowed"
+                    ? "bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.4)] scale-100" 
+                    : "bg-gray-900/50 text-gray-600 border-gray-800 cursor-not-allowed scale-95"
             )}
          >
             {isProcessing ? (
                 <>
-                    <Loader2 className="animate-spin" /> Sedang Mengirim...
+                    <Loader2 className="animate-spin w-5 h-5" /> 
+                    <span>MENGIRIM DATA...</span>
                 </>
             ) : bestGuess ? (
                 <>
-                    <Camera size={20} /> Lapor: {bestGuess}
+                    <Zap className="w-5 h-5 fill-white" />
+                    <span>LAPOR: {bestGuess.toUpperCase()}</span>
                 </>
             ) : (
-                "Dekatkan Objek..."
+                <span className="opacity-50">TUNGGU DETEKSI...</span>
             )}
          </button>
 
       </div>
       
+      {/* CSS Animasi Custom */}
       <style jsx global>{`
         @keyframes scan {
             0% { top: 0%; opacity: 0; }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
+            15% { opacity: 1; }
+            85% { opacity: 1; }
             100% { top: 100%; opacity: 0; }
         }
       `}</style>
