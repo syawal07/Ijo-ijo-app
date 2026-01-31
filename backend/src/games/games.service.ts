@@ -1,7 +1,7 @@
 import {
   Injectable,
   BadRequestException,
-  NotFoundException, // Tambahan Import penting
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -15,7 +15,6 @@ export class GamesService {
   async startGame(userId: string) {
     const user = await this.userModel.findById(userId);
 
-    // SOLUSI ERROR: Cek dulu usernya ada atau tidak
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -24,38 +23,69 @@ export class GamesService {
       throw new BadRequestException('Tiket habis! Silakan pilah sampah dulu.');
     }
 
-    user.gameTickets -= 1; // Kurangi 1 tiket
+    user.gameTickets -= 1;
     await user.save();
 
     return { message: 'Game Start!', remainingTickets: user.gameTickets };
   }
 
-  // 2. SELESAI GAME (Simpan Skor)
-  async saveScore(userId: string, score: number) {
+  // 2. SELESAI GAME (Simpan Skor ke Dompet Spesifik)
+  async saveScore(userId: string, newScore: number, gameType: string) {
     const user = await this.userModel.findById(userId);
 
-    // SOLUSI ERROR: Cek juga di sini
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    // Cuma update kalau skor baru lebih tinggi (High Score)
-    if (score > user.highScore) {
-      user.highScore = score;
-      await user.save();
-      return { message: 'New High Score!', highScore: score };
+    // Pastikan object gameScores ada (jaga-jaga user lama)
+    if (!user.gameScores) {
+      user.gameScores = { catcher: 0, snake: 0, quiz: 0 };
     }
 
-    return { message: 'Score saved', highScore: user.highScore };
+    // Ambil skor lama dari dompet yang sesuai (misal: user.gameScores.snake)
+    const currentScore = user.gameScores[gameType] || 0;
+
+    let message = 'Score saved (No new record)';
+
+    // Cek apakah skor baru lebih tinggi?
+    if (newScore > currentScore) {
+      // Update dompet spesifik
+      user.gameScores[gameType] = newScore;
+
+      // Hitung ulang Total Score (Kalkulator Global Rank)
+      user.totalScore =
+        user.gameScores.catcher + user.gameScores.snake + user.gameScores.quiz;
+
+      // Penting: Beri tahu Mongoose bahwa field object ini berubah
+      user.markModified('gameScores');
+
+      await user.save();
+      message = `New High Score for ${gameType}!`;
+    }
+
+    return {
+      message: message,
+      gameType: gameType,
+      yourScore: newScore,
+      totalGlobalScore: user.totalScore, // Balikin total skor buat update UI
+    };
   }
 
-  // 3. LEADERBOARD (Top 10)
-  async getLeaderboard() {
+  // 3. LEADERBOARD (Top 10 Global atau Per Game)
+  async getLeaderboard(gameType: string = 'all') {
+    // Default sort: Total Score
+    let sortCriteria: any = { totalScore: -1 };
+
+    // Jika user pilih game spesifik (misal: 'snake'), sort berdasarkan skor game itu
+    if (gameType && gameType !== 'all') {
+      sortCriteria = { [`gameScores.${gameType}`]: -1 }; // Syntax dinamis mongodb
+    }
+
     return this.userModel
       .find()
-      .sort({ highScore: -1 })
+      .sort(sortCriteria)
       .limit(10)
-      .select('fullName schoolClass highScore activeItem')
+      .select('fullName schoolClass totalScore gameScores activeItem')
       .populate('activeItem');
   }
 }

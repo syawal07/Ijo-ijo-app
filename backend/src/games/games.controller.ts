@@ -5,6 +5,8 @@ import {
   Body,
   UseGuards,
   Request,
+  BadRequestException,
+  Query, // <-- Jangan lupa import Query
 } from '@nestjs/common';
 import { GamesService } from './games.service';
 import { AuthGuard } from '@nestjs/passport';
@@ -13,24 +15,31 @@ import { AuthGuard } from '@nestjs/passport';
 export class GamesController {
   constructor(private readonly gamesService: GamesService) {}
 
-  // API 1: Pakai Tiket (POST /games/start)
   @UseGuards(AuthGuard('jwt'))
   @Post('/start')
   startGame(@Request() req) {
     return this.gamesService.startGame(req.user.userId);
   }
 
-  // API 2: Lapor Skor Akhir (POST /games/score)
   @UseGuards(AuthGuard('jwt'))
   @Post('/score')
-  saveScore(@Request() req, @Body('score') score: number) {
-    return this.gamesService.saveScore(req.user.userId, score);
+  saveScore(
+    @Request() req,
+    @Body('score') score: number,
+    @Body('gameType') gameType: string,
+  ) {
+    const allowedGames = ['catcher', 'snake', 'quiz'];
+    if (!allowedGames.includes(gameType)) {
+      throw new BadRequestException(
+        'Game Type salah! Pilih: catcher, snake, atau quiz.',
+      );
+    }
+    return this.gamesService.saveScore(req.user.userId, score, gameType);
   }
 
-  // API 3: Lihat Klasemen (GET /games/leaderboard)
-  // Tidak perlu login ketat, biar bisa dilihat siapa saja (opsional)
+  // Update di sini: Menerima Query Param ?game=...
   @Get('/leaderboard')
-  getLeaderboard() {
-    return this.gamesService.getLeaderboard();
+  getLeaderboard(@Query('game') gameType: string) {
+    return this.gamesService.getLeaderboard(gameType);
   }
 }

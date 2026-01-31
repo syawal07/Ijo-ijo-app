@@ -16,7 +16,10 @@ import {
   LogOut, 
   Loader2,
   Image as ImageIcon,
-  Settings // 👈 SUDAH DITAMBAHKAN
+  Settings,
+  Lightbulb, // Icon baru untuk Tips
+  Plus,      // Icon Tambah
+  Trash2     // Icon Hapus
 } from 'lucide-react';
 
 // 1. DEFINISI TIPE DATA (Interface)
@@ -48,12 +51,19 @@ interface FooterInfo {
   social_ig: string;
 }
 
+// Interface Baru untuk Tips
+interface TipItem {
+  title: string;
+  desc: string;
+}
+
 // Tipe Data Utama untuk State
 interface ContentData {
   hero_section: HeroSection;
   auth_section: AuthSection;
   footer_info: FooterInfo;
-  [key: string]: HeroSection | AuthSection | FooterInfo; 
+  tips_section: TipItem[]; // Array baru
+  [key: string]: HeroSection | AuthSection | FooterInfo | TipItem[]; 
 }
 
 export default function AdminContentPage() {
@@ -65,6 +75,7 @@ export default function AdminContentPage() {
     hero_section: { title: '', subtitle: '', cta_text: '', hero_image: '' },
     auth_section: { logo_emoji: '', project_name: '', login_title_start: '', login_title_end: '', login_desc: '', register_title_start: '', register_title_end: '', register_desc: '', register_quote: '', feature_card_title: '', feature_card_desc: '' },
     footer_info: { about: '', contact: '', address: '', social_ig: '' },
+    tips_section: [], // Default array kosong
   });
 
   const [activeTab, setActiveTab] = useState('hero');
@@ -79,6 +90,7 @@ export default function AdminContentPage() {
                 hero_section: { ...prev.hero_section, ...response.data.hero_section },
                 auth_section: { ...prev.auth_section, ...response.data.auth_section },
                 footer_info: { ...prev.footer_info, ...response.data.footer_info },
+                tips_section: response.data.tips_section || [], // Load tips
              }));
         }
       } catch (error) {
@@ -97,10 +109,15 @@ export default function AdminContentPage() {
     }
   }, [router]);
 
+// Handler untuk Object biasa (Hero, Auth, Footer)
   const handleInputChange = (section: string, field: string, value: string) => {
     setContent((prev: ContentData) => {
       const currentSection = prev[section];
+      // Pastikan bukan array sebelum spread
+      if (Array.isArray(currentSection)) return prev;
+
       const updatedSection = {
+        // PERBAIKAN DI SINI: Tambahkan 'as unknown' sebelum 'as Record...'
         ...(currentSection as unknown as Record<string, string>),
         [field]: value
       };
@@ -112,12 +129,32 @@ export default function AdminContentPage() {
     });
   };
 
+  // --- LOGIC BARU: Handler untuk Array Tips ---
+  const handleTipChange = (index: number, field: keyof TipItem, value: string) => {
+    const newTips = [...content.tips_section];
+    newTips[index][field] = value;
+    setContent(prev => ({ ...prev, tips_section: newTips }));
+  };
+
+  const handleAddTip = () => {
+    setContent(prev => ({
+        ...prev,
+        tips_section: [...prev.tips_section, { title: 'Judul Tips Baru', desc: 'Deskripsi singkat tips...' }]
+    }));
+  };
+
+  const handleRemoveTip = (index: number) => {
+    const newTips = content.tips_section.filter((_, i) => i !== index);
+    setContent(prev => ({ ...prev, tips_section: newTips }));
+  };
+  // ---------------------------------------------
+
   const handleSave = async (section: string) => {
     setSaving(true);
     try {
       await api.post('/content/update', {
         key: section,
-        value: content[section]
+        value: content[section] // Backend akan menerima array jika section='tips_section'
       });
       toast.success('Perubahan berhasil disimpan! 💾');
     } catch (error) {
@@ -143,12 +180,13 @@ export default function AdminContentPage() {
   const hero = content.hero_section as HeroSection;
   const auth = content.auth_section as AuthSection;
   const footer = content.footer_info as FooterInfo;
+  const tips = content.tips_section as TipItem[];
 
   return (
     <div className="min-h-screen bg-[#F1F5F9] font-sans text-slate-800 flex flex-col">
       <Toaster position="top-right" />
       
-      {/* NAVBAR ADMIN (Compact) */}
+      {/* NAVBAR ADMIN */}
       <nav className="bg-slate-900 text-white px-6 py-3 flex justify-between items-center sticky top-0 z-50 shadow-md">
           <div className="flex items-center gap-3">
               <div className="bg-white/10 p-2 rounded-lg border border-white/10">
@@ -163,7 +201,6 @@ export default function AdminContentPage() {
               <Link href="/admin/dashboard" className="text-slate-400 hover:text-white flex items-center gap-2 transition-colors">
                 <ArrowLeft className="w-4 h-4" /> Dashboard
               </Link>
-              {/* Perbaikan w-[1px] jadi w-px */}
               <div className="h-4 w-px bg-slate-700"></div>
               <button onClick={handleLogout} className="text-red-400 hover:text-red-300 flex items-center gap-2 transition-colors">
                   <LogOut className="w-4 h-4" /> Keluar
@@ -193,6 +230,16 @@ export default function AdminContentPage() {
                       <LogIn className="w-4 h-4" />
                       Login & Register
                   </button>
+                  
+                  {/* BUTTON BARU: TIPS */}
+                  <button 
+                    onClick={() => setActiveTab('tips')}
+                    className={`w-full text-left px-4 py-3 rounded-xl font-bold text-sm flex items-center gap-3 transition-all ${activeTab === 'tips' ? 'bg-white shadow-md text-emerald-600 border border-slate-100' : 'text-slate-500 hover:bg-slate-200/50 hover:text-slate-700'}`}
+                  >
+                      <Lightbulb className="w-4 h-4" />
+                      Tips & Trick
+                  </button>
+
                   <button 
                     onClick={() => setActiveTab('footer')}
                     className={`w-full text-left px-4 py-3 rounded-xl font-bold text-sm flex items-center gap-3 transition-all ${activeTab === 'footer' ? 'bg-white shadow-md text-emerald-600 border border-slate-100' : 'text-slate-500 hover:bg-slate-200/50 hover:text-slate-700'}`}
@@ -376,6 +423,79 @@ export default function AdminContentPage() {
                           <div className="pt-6 border-t flex justify-end">
                               <button 
                                 onClick={() => handleSave('auth_section')} 
+                                disabled={saving} 
+                                className="flex items-center gap-2 bg-emerald-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/30 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
+                              >
+                                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                  {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
+                              </button>
+                          </div>
+                      </div>
+                  )}
+
+                  {/* --- TAB TIPS & TRICK (BARU) --- */}
+                  {activeTab === 'tips' && (
+                      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                          <div className="border-b pb-4 flex justify-between items-end">
+                              <div>
+                                <h2 className="text-2xl font-black text-slate-800">Tips & Trick</h2>
+                                <p className="text-slate-500 text-sm">Kelola daftar tips yang muncul di halaman depan.</p>
+                              </div>
+                              <button 
+                                onClick={handleAddTip}
+                                className="flex items-center gap-1.5 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-100 transition-colors"
+                              >
+                                <Plus className="w-4 h-4" /> Tambah
+                              </button>
+                          </div>
+                          
+                          <div className="space-y-4">
+                              {tips.length === 0 && (
+                                <div className="text-center py-10 bg-slate-50 rounded-xl border border-dashed border-slate-300 text-slate-400">
+                                    <Lightbulb className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                    Belum ada tips. Tambahkan sekarang!
+                                </div>
+                              )}
+
+                              {tips.map((tip, index) => (
+                                <div key={index} className="bg-slate-50 p-5 rounded-2xl border border-slate-200 group relative hover:shadow-md transition-shadow">
+                                    <button 
+                                        onClick={() => handleRemoveTip(index)}
+                                        className="absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors p-1"
+                                        title="Hapus Tips"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                    
+                                    <div className="grid gap-4 pr-8">
+                                        <div className="group/input">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Judul Tips</label>
+                                            <input 
+                                                type="text" 
+                                                value={tip.title}
+                                                onChange={(e) => handleTipChange(index, 'title', e.target.value)}
+                                                className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:border-emerald-500 outline-none font-bold text-slate-700"
+                                                placeholder="Contoh: Pisahkan Plastik"
+                                            />
+                                        </div>
+                                        <div className="group/input">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Deskripsi Singkat</label>
+                                            <textarea 
+                                                value={tip.desc}
+                                                onChange={(e) => handleTipChange(index, 'desc', e.target.value)}
+                                                className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:border-emerald-500 outline-none h-20 resize-none text-sm text-slate-600"
+                                                placeholder="Penjelasan tips..."
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="absolute top-5 left-0 w-1 h-12 bg-emerald-400 rounded-r-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                </div>
+                              ))}
+                          </div>
+
+                          <div className="pt-6 border-t flex justify-end">
+                              <button 
+                                onClick={() => handleSave('tips_section')} 
                                 disabled={saving} 
                                 className="flex items-center gap-2 bg-emerald-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/30 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
                               >

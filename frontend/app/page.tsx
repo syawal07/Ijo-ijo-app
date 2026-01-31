@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import api from '@/lib/axios';
-// 👇 IMPORT ICONS (Agar Modern)
+// 👇 PERBAIKAN IMPORT DI SINI (Menambahkan /app/)
+import TipsCard from '@/app/components/landing/TipsCard'; 
+
 import { Trash2, PackageOpen, Droplets, Mail, MapPin, Instagram, ArrowRight, Lock, BarChart3, Leaf } from 'lucide-react';
-// 👇 IMPORT HELPER
 import { getDriveImage } from '@/app/utils/driveHelper';
 
 // --- Interface Data ---
@@ -51,7 +52,6 @@ export default function LandingPage() {
 
   if (loading || !data) {
     return (
-      // Background putih bersih, loading hijau
       <div className="flex min-h-screen items-center justify-center bg-white">
         <div className="relative">
            <div className="h-16 w-16 animate-spin rounded-full border-4 border-emerald-100 border-t-emerald-600"></div>
@@ -65,7 +65,6 @@ export default function LandingPage() {
   const navbarLogo = data.auth_section?.logo_emoji || '🌱';
 
   return (
-    // Base color hitam/hijau tua, BUKAN abu-abu
     <div className="min-h-screen font-sans text-emerald-950 bg-white selection:bg-emerald-200 selection:text-emerald-900">
       
       {/* CUSTOM ANIMATION STYLE */}
@@ -88,7 +87,6 @@ export default function LandingPage() {
       <nav className="fixed top-0 z-50 w-full border-b border-emerald-100 bg-white/80 backdrop-blur-xl transition-all">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3 group cursor-pointer">
-            {/* Logo Wrapper */}
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/30 group-hover:scale-110 transition-transform overflow-hidden">
                 {(navbarLogo.includes('http') || navbarLogo.includes('/')) ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
@@ -102,7 +100,6 @@ export default function LandingPage() {
                     <span className="text-2xl">{navbarLogo}</span>
                 )}
             </div>
-
             <span className="text-xl font-black tracking-tighter text-emerald-950 group-hover:text-emerald-600 transition-colors">
                 IJO PROJECT
             </span>
@@ -130,13 +127,10 @@ export default function LandingPage() {
       {/* --- HERO SECTION --- */}
       <section id="beranda" className="relative pt-36 pb-20 lg:pt-48 lg:pb-32 overflow-hidden bg-white">
         <div className="absolute inset-0 bg-grid-pattern opacity-[0.05] pointer-events-none"></div>
-        {/* Gradient Orbs */}
         <div className="absolute top-0 right-0 h-[600px] w-[600px] bg-emerald-100/40 rounded-full blur-[100px] -z-10 translate-x-1/3 -translate-y-1/4"></div>
         <div className="absolute bottom-0 left-0 h-[500px] w-[500px] bg-teal-100/40 rounded-full blur-[100px] -z-10 -translate-x-1/3 translate-y-1/4"></div>
 
         <div className="mx-auto max-w-7xl px-6 grid lg:grid-cols-2 gap-16 items-center">
-          
-          {/* Hero Text */}
           <div className="space-y-8 relative z-10">
             <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-200 px-4 py-1.5 text-xs font-bold text-emerald-800 uppercase tracking-wider shadow-sm">
               <span className="relative flex h-2 w-2">
@@ -151,7 +145,6 @@ export default function LandingPage() {
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500"> {data.hero_section.title.split(' ').pop()}</span>
             </h1>
             
-            {/* TEXT SUBTITLE: JANGAN ABU-ABU -> GANTI HIJAU GELAP */}
             <p className="text-xl text-emerald-800/90 font-medium leading-relaxed max-w-lg">
               {data.hero_section.subtitle}
             </p>
@@ -180,38 +173,35 @@ export default function LandingPage() {
             </div>
           </div>
           
-          {/* Hero Image */}
           <div className="relative animate-float">
              <div className="relative rounded-[3rem] p-3 bg-white/60 backdrop-blur-md border border-white/50 shadow-2xl shadow-emerald-900/5">
                 <div className="relative rounded-[2.5rem] overflow-hidden shadow-inner aspect-[4/3] bg-emerald-50">
-                    {/* HERO IMAGE */}
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img 
-                      src={getDriveImage(data.hero_section.hero_image)} 
-                      alt="Hero" 
-                      className="w-full h-full object-cover transform transition-transform hover:scale-105 duration-700"
-                      referrerPolicy="no-referrer"
-                    />
-                    
-                    {/* Floating Stats Card */}
-                    <div className="absolute bottom-6 left-6 right-6 rounded-3xl bg-white/95 backdrop-blur-xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-white/20">
-                       <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                             <div className="h-12 w-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-inner">
-                                <Leaf className="w-6 h-6 fill-current" />
-                             </div>
-                             <div>
-                                <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Impact Tracker</p>
-                                <p className="text-xl font-black text-emerald-950">1,240 kg</p>
-                             </div>
-                          </div>
-                          <div className="text-right">
-                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-bold">
-                                <BarChart3 className="w-3 h-3" /> 12%
-                              </span>
-                          </div>
-                       </div>
-                    </div>
+                   {/* eslint-disable-next-line @next/next/no-img-element */}
+                   <img 
+                     src={getDriveImage(data.hero_section.hero_image)} 
+                     alt="Hero" 
+                     className="w-full h-full object-cover transform transition-transform hover:scale-105 duration-700"
+                     referrerPolicy="no-referrer"
+                   />
+                   
+                   <div className="absolute bottom-6 left-6 right-6 rounded-3xl bg-white/95 backdrop-blur-xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-white/20">
+                      <div className="flex items-center justify-between">
+                         <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-inner">
+                               <Leaf className="w-6 h-6 fill-current" />
+                            </div>
+                            <div>
+                               <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Impact Tracker</p>
+                               <p className="text-xl font-black text-emerald-950">1,240 kg</p>
+                            </div>
+                         </div>
+                         <div className="text-right">
+                             <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-bold">
+                               <BarChart3 className="w-3 h-3" /> 12%
+                             </span>
+                         </div>
+                      </div>
+                   </div>
                 </div>
              </div>
           </div>
@@ -227,26 +217,21 @@ export default function LandingPage() {
                <p className="text-lg text-emerald-800">Langkah kecil yang bisa kamu lakukan hari ini untuk dampak besar.</p>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-8">
-               {data.tips_section.map((tip, idx) => (
-                  <div key={idx} className="group relative bg-emerald-50/50 border border-emerald-100/50 rounded-[2.5rem] p-10 transition-all duration-300 hover:bg-emerald-600 hover:text-white hover:-translate-y-2 hover:shadow-2xl hover:shadow-emerald-500/20">
-                      <div className="absolute top-10 right-10 opacity-10 text-9xl font-black group-hover:opacity-20 transition-opacity select-none text-emerald-900 group-hover:text-white">
-                         {idx + 1}
-                      </div>
-                      <div className="relative z-10">
-                          <div className="h-20 w-20 rounded-3xl bg-white text-emerald-600 flex items-center justify-center mb-8 shadow-sm group-hover:scale-110 transition-transform duration-300">
-                             {/* ICONS MODERN DARI LUCIDE */}
-                             {idx === 0 ? <Trash2 className="w-10 h-10" /> : 
-                              idx === 1 ? <PackageOpen className="w-10 h-10" /> : 
-                              <Droplets className="w-10 h-10" />}
-                          </div>
-                          <h3 className="text-2xl font-black mb-4 text-emerald-950 group-hover:text-white">{tip.title}</h3>
-                          <p className="text-emerald-800 font-medium leading-relaxed group-hover:text-emerald-50">
-                             {tip.desc}
-                          </p>
-                      </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+               {data.tips_section && data.tips_section.length > 0 ? (
+                  data.tips_section.map((tip, idx) => (
+                    <TipsCard 
+                      key={idx} 
+                      index={idx}
+                      title={tip.title} 
+                      desc={tip.desc} 
+                    />
+                  ))
+               ) : (
+                  <div className="col-span-3 text-center py-10 bg-emerald-50 rounded-3xl border border-emerald-100 text-emerald-600">
+                    Belum ada tips yang ditambahkan di CMS.
                   </div>
-               ))}
+               )}
             </div>
          </div>
       </section>
@@ -284,7 +269,7 @@ export default function LandingPage() {
             <div className="col-span-1 md:col-span-2 space-y-6">
                <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center text-xl overflow-hidden">
-                     {(navbarLogo.includes('http') || navbarLogo.includes('/')) ? (
+                      {(navbarLogo.includes('http') || navbarLogo.includes('/')) ? (
                            /* eslint-disable-next-line @next/next/no-img-element */
                            <img src={getDriveImage(navbarLogo)} alt="Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                         ) : (
@@ -341,7 +326,6 @@ export default function LandingPage() {
             </div>
          </div>
       </footer>
-
     </div>
   );
 }
