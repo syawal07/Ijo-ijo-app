@@ -13,14 +13,13 @@ import api from '@/lib/axios';
 interface UserData {
   fullName: string;
   gameTickets: number;
-  // highScore lama kita abaikan, kita pakai struktur baru di backend
   highScore: number; 
 }
 
-const GAME_PRICE = 1; // Ticket cost
+const GAME_PRICE = 1;
 
 // ============================================================================
-// GAME 1: IJO CATCHER (FIXED)
+// GAME 1: IJO CATCHER (WITH AUDIO)
 // ============================================================================
 
 const TRASH_TYPES = [
@@ -63,6 +62,59 @@ function IjoCatcherGame({ onBack }: { onBack: () => void }) {
   const lastSpawnRef = useRef(0);
   const gameAreaRef = useRef<HTMLDivElement>(null);
 
+  // --- AUDIO REFS ---
+  const bgmRef = useRef<HTMLAudioElement | null>(null);
+  const sfxPop = useRef<HTMLAudioElement | null>(null);
+  const sfxWrong = useRef<HTMLAudioElement | null>(null);
+  const sfxOver = useRef<HTMLAudioElement | null>(null);
+
+  // --- AUDIO INIT ---
+  useEffect(() => {
+    bgmRef.current = new Audio('/sound/bgm-catcher.mp3'); 
+    bgmRef.current.loop = true; 
+    bgmRef.current.volume = 0.4; 
+
+    sfxPop.current = new Audio('/sound/pop.mp3');
+    sfxPop.current.volume = 0.6;
+
+    sfxWrong.current = new Audio('/sound/wrong.mp3');
+    sfxWrong.current.volume = 0.6;
+
+    sfxOver.current = new Audio('/sound/gameover.mp3');
+    sfxOver.current.volume = 0.7;
+
+    return () => {
+      stopBGM();
+    };
+  }, []);
+
+  const playSfx = (type: 'pop' | 'wrong' | 'over') => {
+    let audio: HTMLAudioElement | null = null;
+    if (type === 'pop') audio = sfxPop.current;
+    if (type === 'wrong') audio = sfxWrong.current;
+    if (type === 'over') audio = sfxOver.current;
+
+    if (audio) {
+      const soundClone = audio.cloneNode() as HTMLAudioElement; 
+      soundClone.volume = audio.volume;
+      soundClone.play().catch(e => console.log("Audio error:", e));
+    }
+  };
+
+  const playBGM = () => {
+    if (bgmRef.current) {
+      bgmRef.current.currentTime = 0;
+      bgmRef.current.play().catch(e => console.log("BGM error:", e));
+    }
+  };
+
+  const stopBGM = () => {
+    if (bgmRef.current) {
+      bgmRef.current.pause();
+      bgmRef.current.currentTime = 0;
+    }
+  };
+
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -87,6 +139,10 @@ function IjoCatcherGame({ onBack }: { onBack: () => void }) {
       await api.post('/games/start');
       setUser(prev => prev ? ({ ...prev, gameTickets: prev.gameTickets - GAME_PRICE }) : null);
       toast.dismiss(toastId);
+      
+      // --- PLAY MUSIC ---
+      playBGM();
+
       startGameLoop();
     } catch (error) {
       console.error(error);
@@ -164,6 +220,10 @@ function IjoCatcherGame({ onBack }: { onBack: () => void }) {
             
             if (item.type === targetTypeRef.current.type) {
                 scoreRef.current += 10;
+                
+                // --- SFX CORRECT ---
+                playSfx('pop');
+
                 if (scoreRef.current % 100 === 0) {
                     timeRef.current += 5;
                     setTimeLeft(timeRef.current);
@@ -171,6 +231,10 @@ function IjoCatcherGame({ onBack }: { onBack: () => void }) {
                 }
             } else {
                 livesRef.current -= 1;
+                
+                // --- SFX WRONG ---
+                playSfx('wrong');
+
                 if (navigator.vibrate) navigator.vibrate(200);
             }
         } else if (item.y > 120) {
@@ -201,15 +265,18 @@ function IjoCatcherGame({ onBack }: { onBack: () => void }) {
     return () => clearInterval(interval);
   }, [gameState]);
 
-  // --- PERBAIKAN DI SINI (Ijo Catcher) ---
   const endGame = async () => {
     if (requestRef.current) cancelAnimationFrame(requestRef.current);
+    
+    // --- STOP BGM & PLAY OVER ---
+    stopBGM();
+    playSfx('over');
+
     setGameState('gameover');
     
     const finalScore = scoreRef.current;
     
     try {
-      // TAMBAHAN: gameType: 'catcher'
       await api.post('/games/score', { 
         score: finalScore,
         gameType: 'catcher' 
@@ -241,6 +308,7 @@ function IjoCatcherGame({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     return () => {
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
+      stopBGM();
     };
   }, []);
 
@@ -397,12 +465,10 @@ function NeuroSnakeGame({ onBack }: { onBack: () => void }) {
     setGameState('playing');
   };
 
-  // --- PERBAIKAN DI SINI (Neuro Snake) ---
   const endGame = async () => {
     if (gameLoopRef.current) clearInterval(gameLoopRef.current);
     setGameState('gameover');
     try {
-      // TAMBAHAN: gameType: 'snake'
       await api.post('/games/score', { 
         score: score, 
         gameType: 'snake' 
@@ -429,13 +495,11 @@ function NeuroSnakeGame({ onBack }: { onBack: () => void }) {
           case 'RIGHT': newHead.x += 1; break;
         }
 
-        // Check Collision Wall
         if (newHead.x < 0 || newHead.x >= CELL_COUNT || newHead.y < 0 || newHead.y >= CELL_COUNT) {
           endGame();
           return prevSnake;
         }
 
-        // Check Collision Self
         if (prevSnake.some(segment => segment.x === newHead.x && segment.y === newHead.y)) {
           endGame();
           return prevSnake;
@@ -443,11 +507,9 @@ function NeuroSnakeGame({ onBack }: { onBack: () => void }) {
 
         const newSnake = [newHead, ...prevSnake];
 
-        // Eat Food
         if (newHead.x === food.x && newHead.y === food.y) {
           setScore(s => s + 10);
           setFood(generateFood());
-          // Don't pop tail
         } else {
           newSnake.pop();
         }
@@ -460,7 +522,6 @@ function NeuroSnakeGame({ onBack }: { onBack: () => void }) {
     return () => { if (gameLoopRef.current) clearInterval(gameLoopRef.current); };
   }, [gameState, food]);
 
-  // Controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (gameState !== 'playing') return;
@@ -627,12 +688,10 @@ function EcoQuizGame({ onBack }: { onBack: () => void }) {
       if (currentQ < QUESTIONS.length - 1) {
           setCurrentQ(q => q + 1);
       } else {
-          // Manual end game called by last question
           endGameSafe();
       }
   };
 
-  // --- PERBAIKAN DI SINI (Eco Quiz) ---
   const scoreRef = useRef(0);
   useEffect(() => { scoreRef.current = score; }, [score]);
   
@@ -640,8 +699,6 @@ function EcoQuizGame({ onBack }: { onBack: () => void }) {
       if (timerRef.current) clearInterval(timerRef.current);
       setGameState('gameover');
       try {
-          // TAMBAHAN: gameType: 'quiz'
-          // Kita pakai scoreRef.current agar nilainya paling update saat fungsi dipanggil
           await api.post('/games/score', { 
             score: scoreRef.current,
             gameType: 'quiz' 
