@@ -76,7 +76,7 @@ export class GamesService {
     // Default sort: Total Score
     let sortCriteria: any = { totalScore: -1 };
 
-    // Jika user pilih game spesifik (misal: 'snake'), sort berdasarkan skor game itu
+    // Jika user pilih game spesifik (misal: 'snake'), sort berdasarkan skorr game itu
     if (gameType && gameType !== 'all') {
       sortCriteria = { [`gameScores.${gameType}`]: -1 }; // Syntax dinamis mongodb
     }
