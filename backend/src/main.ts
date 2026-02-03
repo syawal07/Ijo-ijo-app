@@ -6,10 +6,15 @@ async function bootstrap() {
 
   app.enableCors({
     origin: [
-      'https://ijo-ijo-app-587f.vercel.app', // Frontend Vercel 1
-      'https://ijo-ijo-app.vercel.app', // Frontend Vercel 2
-      'http://localhost:3000', // Backend/Frontend Local (Port 3000)
-      'http://localhost:3001', // 👇 INI YANG PENTING (Frontend Local kamu sekarang)
+      // 👇 TAMBAHKAN LINK FRONTEND BARU DI SINI (Tanpa garis miring '/' di belakang)
+      'https://ijo-ijo-app-4hkg.vercel.app',
+
+      // Link Production/Utama (Tetap simpan)
+      'https://ijo-ijo-app.vercel.app',
+
+      // Link Localhost (Biar coding di laptop tetap jalan)
+      'http://localhost:3000',
+      'http://localhost:3001',
     ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
